@@ -24,6 +24,7 @@ REDMINE_USER = ''
 REDMINE_PASSWORD = ''
 
 TITLE_REGEX = re.compile('.*\[.+ - .+ #\d+\].+')
+BASE64_REGEX = re.compile('^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$')
 
 def process_mailbox(mailbox):
 
@@ -88,7 +89,7 @@ def process_mailbox(mailbox):
 			if (EMAIL_EXCEPTION in msg['From']):
 				print('Redmine sender found. Email skipped')
 				continue
-			
+
 			notes = get_body(msg)
 			print('Body:', notes)
 
@@ -129,12 +130,16 @@ def parse_title(value):
 
 
 def base64_decode(value):
-	if (not value.strip().endswith('=')):
+	if BASE64_REGEX.match(value) is None:
 		return value
 	try:
-		return str(base64.b64decode(value))
+		decoded = base64.b64decode(value)
 	except binascii.Error:
 		return value
+	try:
+		return decoded.decode('ascii')
+	except UnicodeDecodeError:
+		return str(decoded)
 
 
 def get_body(msg):
