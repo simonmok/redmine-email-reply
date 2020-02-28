@@ -1,5 +1,5 @@
 from redminelib import Redmine
-from redminelib.exceptions import AuthError, ForbiddenError
+from redminelib.exceptions import AuthError, ForbiddenError, ResourceNotFoundError
 from io import BytesIO
 
 import base64
@@ -78,6 +78,9 @@ def process_mailbox(mailbox):
 				if (redmine_project != project_id):
 					print('Project "%s" does not match. Expecting "%s".' % (project_id, redmine_project))
 					continue
+			except ResourceNotFoundError:
+				print('Resource not found error (id: %d) during Redmine API call' % journal_id)
+				continue
 			except AuthError:
 				print('Authentication error during Redmine API call')
 				continue
@@ -107,8 +110,10 @@ def process_mailbox(mailbox):
 			mailbox.store(mail, '+FLAGS', '\\Deleted')
 
 	print('=' * 30)
-	print('Purging fetched mail messages')
-	print('Result: %s' % mailbox.expunge()[0])
+	if process_count > 0:
+		print('Purging fetched mail messages')
+		print('Result: %s' % mailbox.expunge()[0])
+
 	mailbox.close()
 	print('Logging out from %s' % EMAIL_ACCOUNT)
 	print('Summary: %d mail(s) processed successfully' % process_count)
