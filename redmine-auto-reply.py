@@ -75,9 +75,9 @@ def process_mailbox(mailbox):
 			print('From:', msg['From'])
 
 			try:
-				redmine_project = redmine.issue.get(journal_id).project.name
-				if (redmine_project != project_id):
-					print('Project "%s" does not match. Expecting "%s".' % (project_id, redmine_project))
+				redmine_project = redmine.issue.get(journal_id).project
+				if (redmine_project.name != project_id):
+					print('Project "%s" does not match. Expecting "%s".' % (project_id, redmine_project.name))
 					continue
 			except ResourceNotFoundError:
 				print('Resource not found error (id: %d) during Redmine API call' % journal_id)
@@ -86,9 +86,17 @@ def process_mailbox(mailbox):
 				print('Authentication error during Redmine API call')
 				continue
 
-			if (EMAIL_EXCEPTION in msg['From']):
+			sender = parse_email(msg['From'].lower())
+			if (EMAIL_EXCEPTION == sender):
 				print('Redmine sender found. Email skipped')
 				continue
+
+			users = [redmine.user.get(membership.user.id).login.lower() for membership in redmine_project.memberships]
+			if (not sender in users):
+				print('Sender %s is not allowed to post in ticket' % sender)
+				continue
+			else:
+				print('Sender %s is found from %d membership(s) of ticket' % (sender, len(users)))
 
 			notes = get_body(msg)
 			print('Body:', notes)
@@ -119,6 +127,14 @@ def process_mailbox(mailbox):
 	print('Logging out from %s' % EMAIL_ACCOUNT)
 	print('Summary: %d mail(s) processed successfully' % process_count)
 	mailbox.logout()
+
+
+def parse_email(value):
+	index_start = value.find('<')
+	index_end = value.find('>')
+	if (index_start < 0 or index_end < 0 or index_start > index_end):
+		return value
+	return value[index_start + 1 : index_end]
 
 
 def parse_title(value):
